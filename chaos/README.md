@@ -110,5 +110,12 @@ Using the above schema, write an SQL `SELECT` query to return all songs in a pla
 **Answer box:**
 
 ```sql
--- Write query here
+SELECT "songs"."id",
+       "playlist_songs"."id"                     as "playlist_id",
+       "songs"."title",
+       "songs"."artist",
+       TO_CHAR("songs"."duration", 'HH24:MI:SS') as "duration"
+FROM "playlist_songs"
+         JOIN "songs"
+WHERE "playlist_songs"."playlist_id" = 676767
 ```

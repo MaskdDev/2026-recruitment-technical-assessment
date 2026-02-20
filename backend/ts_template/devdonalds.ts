@@ -1,21 +1,23 @@
 import express, { Request, Response } from "express";
 
 // ==== Type Definitions, feel free to add or modify ==========================
-interface cookbookEntry {
+interface CookbookEntry {
   name: string;
   type: string;
 }
 
-interface requiredItem {
+interface RequiredItem {
   name: string;
   quantity: number;
 }
 
-interface recipe extends cookbookEntry {
-  requiredItems: requiredItem[];
+interface Recipe extends CookbookEntry {
+  type: "recipe";
+  requiredItems: RequiredItem[];
 }
 
-interface ingredient extends cookbookEntry {
+interface Ingredient extends CookbookEntry {
+  type: "ingredient";
   cookTime: number;
 }
 

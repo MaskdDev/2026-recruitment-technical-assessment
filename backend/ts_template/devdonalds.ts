@@ -1,9 +1,12 @@
 import express, { Request, Response } from "express";
 
 // ==== Type Definitions, feel free to add or modify ==========================
-interface CookbookEntry {
+type CookbookEntry = Recipe | Ingredient;
+
+interface Recipe {
   name: string;
-  type: string;
+  type: "recipe";
+  requiredItems: RequiredItem[];
 }
 
 interface RequiredItem {
@@ -11,12 +14,8 @@ interface RequiredItem {
   quantity: number;
 }
 
-interface Recipe extends CookbookEntry {
-  type: "recipe";
-  requiredItems: RequiredItem[];
-}
-
-interface Ingredient extends CookbookEntry {
+interface Ingredient {
+  name: string;
   type: "ingredient";
   cookTime: number;
 }
@@ -28,7 +27,7 @@ const app = express();
 app.use(express.json());
 
 // Store your recipes here!
-const cookbook: any = null;
+const cookbook: CookbookEntry[] = [];
 
 // Task 1 helper (don't touch)
 app.post("/parse", (req: Request, res: Response) => {
@@ -74,8 +73,55 @@ const parse_handwriting = (recipeName: string): string | null => {
 // [TASK 2] ====================================================================
 // Endpoint that adds a CookbookEntry to your magical cookbook
 app.post("/entry", (req: Request, res: Response) => {
-  // TODO: implement me
-  res.status(500).send("not yet implemented!");
+  // Get request body
+  const body = JSON.parse(req.body);
+
+  // Check if request body matches basic schema structure
+  if (!("name" in body && "type" in body)) {
+    return res.sendStatus(400);
+  }
+
+  // Get request entry
+  const requestEntry: CookbookEntry = body;
+
+  // Check if entry name is unique
+  if (cookbook.some((entry) => entry.name === requestEntry.name)) {
+    return res.sendStatus(400);
+  }
+
+  // Check type of entry for further validation
+  switch (requestEntry.type) {
+    case "recipe": {
+      // Ensure that required items field has been provided
+      if (!("requiredItems" in requestEntry)) {
+        return res.sendStatus(400);
+      }
+
+      // Get the names of all required items
+      const requiredItemNames = requestEntry.requiredItems.map(
+        (item) => item.name,
+      );
+
+      // Check if required items has any duplicate names
+      if (new Set(requiredItemNames).size !== requiredItemNames.length) {
+        return res.sendStatus(404);
+      }
+      break;
+    }
+    case "ingredient": {
+      // Ensure that cook time field has been provided and is valid
+      if (!("cookTime" in requestEntry && requestEntry.cookTime >= 0)) {
+        return res.sendStatus(400);
+      }
+      break;
+    }
+  }
+
+  // Add item to cookbook
+  cookbook.push(requestEntry);
+
+  // Return 200
+  return res.status(200);
 });
 
 // [TASK 3] ====================================================================

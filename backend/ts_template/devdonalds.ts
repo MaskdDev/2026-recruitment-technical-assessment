@@ -3,8 +3,12 @@ import express, { Request, Response } from "express";
 // ==== Type Definitions, feel free to add or modify ==========================
 type CookbookEntry = Recipe | Ingredient;
 
-interface Recipe {
+interface BaseCookbookEntry {
   name: string;
+  type: string;
+}
+
+interface Recipe extends BaseCookbookEntry {
   type: "recipe";
   requiredItems: RequiredItem[];
 }
@@ -14,10 +18,15 @@ interface RequiredItem {
   quantity: number;
 }
 
-interface Ingredient {
-  name: string;
+interface Ingredient extends BaseCookbookEntry {
   type: "ingredient";
   cookTime: number;
+}
+
+interface RecipeSummary {
+  name: string;
+  cookTime: number;
+  ingredients: RequiredItem[];
 }
 
 // =============================================================================
@@ -27,7 +36,7 @@ const app = express();
 app.use(express.json());
 
 // Store your recipes here!
-const cookbook: CookbookEntry[] = [];
+const cookbook: Map<string, CookbookEntry> = new Map();
 
 // Task 1 helper (don't touch)
 app.post("/parse", (req: Request, res: Response) => {
@@ -73,19 +82,16 @@ const parse_handwriting = (recipeName: string): string | null => {
 // [TASK 2] ====================================================================
 // Endpoint that adds a CookbookEntry to your magical cookbook
 app.post("/entry", (req: Request, res: Response) => {
-  // Get request body
-  const body = JSON.parse(req.body);
-
   // Check if request body matches basic schema structure
-  if (!("name" in body && "type" in body)) {
+  if (!("name" in req.body && "type" in req.body)) {
     return res.sendStatus(400);
   }
 
   // Get request entry
-  const requestEntry: CookbookEntry = body;
+  const requestEntry: CookbookEntry = req.body;
 
-  // Check if entry name is unique
-  if (cookbook.some((entry) => entry.name === requestEntry.name)) {
+  // Check if entry name is already present
+  if (cookbook.has(requestEntry.name)) {
     return res.sendStatus(400);
   }
 
@@ -115,20 +121,74 @@ app.post("/entry", (req: Request, res: Response) => {
       }
       break;
     }
+    default: {
+      return res.sendStatus(400);
+    }
   }
 
   // Add item to cookbook
-  cookbook.push(requestEntry);
+  cookbook.set(requestEntry.name, requestEntry);
 
-  // Return 200
-  return res.status(200);
+  // Return 200 OK
+  res.status(200).send();
 });
 
 // [TASK 3] ====================================================================
 // Endpoint that returns a summary of a recipe that corresponds to a query name
-app.get("/summary", (req: Request, res: Request) => {
-  // TODO: implement me
-  res.status(500).send("not yet implemented!");
+app.get("/summary", (req: Request<{ name: string }>, res: Response) => {
+  // Get recipe name from request
+  const entryName = req.query.name as string;
+
+  // Ensure entry exists in cookbook
+  if (!cookbook.has(entryName)) {
+    return res.sendStatus(400);
+  }
+
+  // Get entry from cookbook
+  const entry = cookbook.get(entryName);
+
+  // Check if entry is an ingredient
+  if (entry.type === "ingredient") {
+    return res.sendStatus(400);
+  }
+
+  // Recursively get all ingredients and the total cook time
+  const ingredients: RequiredItem[] = [];
+  let cookTime: number = 0;
+  const addIngredients = (items: RequiredItem[]) => {
+    for (const item of items) {
+      // Ensure item exists in cookbook
+      if (!cookbook.has(item.name)) {
+        throw new Error("Required item not found in cookbook.");
+      }
+
+      // Get entry from cookbook
+      const entry = cookbook.get(item.name);
+
+      // Add or recursively add ingredients
+      if (entry.type === "ingredient") {
+        ingredients.push(item);
+        cookTime += entry.cookTime;
+      } else {
+        addIngredients(entry.requiredItems);
+      }
+    }
+  };
+  try {
+    addIngredients(entry.requiredItems);
+  } catch {
+    return res.sendStatus(400);
+  }
+
+  // Create recipe summary
+  const summary: RecipeSummary = {
+    name: entry.name,
+    cookTime,
+    ingredients,
+  };
+
+  // Return response
+  res.status(200).json(summary);
 });
 
 // =============================================================================

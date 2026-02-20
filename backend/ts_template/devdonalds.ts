@@ -83,7 +83,14 @@ const parse_handwriting = (recipeName: string): string | null => {
 // Endpoint that adds a CookbookEntry to your magical cookbook
 app.post("/entry", (req: Request, res: Response) => {
   // Check if request body matches basic schema structure
-  if (!("name" in req.body && "type" in req.body)) {
+  if (
+    !(
+      "name" in req.body &&
+      req.body.name instanceof String &&
+      "type" in req.body &&
+      req.body.type instanceof String
+    )
+  ) {
     return res.sendStatus(400);
   }
 
@@ -116,7 +123,13 @@ app.post("/entry", (req: Request, res: Response) => {
     }
     case "ingredient": {
       // Ensure that cook time field has been provided and is valid
-      if (!("cookTime" in requestEntry && requestEntry.cookTime >= 0)) {
+      if (
+        !(
+          "cookTime" in requestEntry &&
+          typeof requestEntry.cookTime === "number" &&
+          requestEntry.cookTime >= 0
+        )
+      ) {
         return res.sendStatus(400);
       }
       break;
